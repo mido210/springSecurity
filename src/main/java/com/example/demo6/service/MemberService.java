@@ -5,6 +5,7 @@ import com.example.demo6.dao.*;
 import com.example.demo6.dto.*;
 import com.example.demo6.entity.*;
 import com.example.demo6.util.*;
+import jakarta.validation.*;
 import org.apache.commons.lang3.*;
 import org.springframework.beans.factory.annotation.*;
 import org.springframework.security.crypto.password.*;
@@ -32,20 +33,28 @@ public class MemberService {
         //비밀번호 암호화 했다 치자 1순위
         String encodedPassword = encoder.encode(dto.getPassword()) ;
         // 프사 저장을 위한 base64 인코딩
+        //프사 확인
         MultipartFile profile = dto.getProfile();
-//        <input type ="file" name='profile'> 선택 안하고 넘어갔다 -> null이 아니다
+        boolean 프사_존재 = profile!=null&& !profile.isEmpty();
         String base64Image="";
-        if(!profile.isEmpty()){
-            try {
-             base64Image = Demo6Util.convertToBase64(profile);
-            } catch (IOException e) {
-               e.printStackTrace();
+        try {
+            if(프사_존재){
+                base64Image= Demo6Util.convertToBase64(profile);
             }
+            else {
+                base64Image=Demo6Util.getDefaultBase64Profile();
+            }
+        } catch (IOException e) {
+            base64Image=Demo6Util.getDefaultBase64Profile();
         }
-        //3. 암화된 비밀번호, base64이미지를 가지고 dto를 member로
+//        3. 암화된 비밀번호, base64이미지를 가지고 dto를 member로
+        System.out.println(base64Image);
         Member member = dto.toEntity(encodedPassword, base64Image);
+        System.out.println(member);
         memberDao.save(member);
         return member;
+
+
     }
     public Optional<String> searchUsername(String email){
      return memberDao.findUsernameByEmail(email);
@@ -66,4 +75,20 @@ public class MemberService {
     }
 
 
+    public MemberDto.Read read(String loginId) {
+        Member member= memberDao.findByUsername(loginId);
+        return member.toRead();
+    }
+
+    public boolean changePassword(MemberDto. PasswordChange dto, String loginId) {
+        //기존 비밀번호
+        String encodedPassword = memberDao.findPasswordByUsername(loginId);
+        if(!encoder.matches(dto.getCurrentPassword(),encodedPassword))
+            return false;
+        return memberDao.updatePassword(loginId, encoder.encode(dto.getNewPassword()))==1;
+    }
+
+    public void resign(String loginId) {
+        memberDao.delete(loginId);
+    }
 }
